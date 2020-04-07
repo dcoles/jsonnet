@@ -2,7 +2,6 @@ import inspect
 from functools import singledispatch
 from typing import Callable, Tuple
 
-
 from jsonnet._jsonnet import ffi, lib
 from jsonnet.types import JsonValue, JsonnetError
 
@@ -26,7 +25,7 @@ class VMHandle:
         self._import_callback = None
         self._native_callbacks = {}
 
-    def close(self):
+    def destroy(self):
         if self._vm:
             lib.jsonnet_destroy(self._vm)
             self._vm = None
@@ -78,7 +77,7 @@ class VMHandle:
         return self._import_callback
 
     @import_callback.setter
-    def import_callback(self, cb: Callable[[str, str], Tuple[str, str]]):
+    def import_callback(self, cb: Callable):
         sig = inspect.signature(cb)
         if len(sig.parameters) != 2:
             raise TypeError('Callback must take two arguments: dir, rel')
@@ -205,27 +204,29 @@ def _jsonvalue_bool(value: bool, *, vm: ffi.CData) -> ffi.CData:
 
 
 @jsonvalue.register(list)
-def _jsonvalue_array(values: list, *, vm: ffi.CData) -> ffi.CData:
-    array = lib.jsonnet_json_make_array(vm)
+def _jsonvalue_array(array: list, *, vm: ffi.CData) -> ffi.CData:
+    arr = lib.jsonnet_json_make_array(vm)
     try:
-        for v in values:
+        for v in array:
             val = jsonvalue(v, vm=vm)
-            lib.jsonnet_json_array_append(vm, array, val)
+            lib.jsonnet_json_array_append(vm, arr, val)
     except Exception:
-        jsonvalue_destroy(array, vm=vm)
+        jsonvalue_destroy(arr, vm=vm)
         raise
 
-    return array
+    return arr
 
 
 @jsonvalue.register(dict)
-def _jsonvalue_object(mapping: dict, *, vm: ffi.CData) -> ffi.CData:
+def _jsonvalue_object(object: dict, *, vm: ffi.CData) -> ffi.CData:
     obj = lib.jsonnet_json_make_object(vm)
     try:
-        for k, v in mapping.items():
-            key = k.encode()
+        for n, v in object.items():
+            if not isinstance(n, str):
+                raise TypeError('Names in a JSON object must be strings')
+            name = n.encode()
             val = jsonvalue(v, vm=vm)
-            lib.jsonnet_json_object_append(vm, obj, key, val)
+            lib.jsonnet_json_object_append(vm, obj, name, val)
     except Exception:
         jsonvalue_destroy(obj, vm=vm)
         raise
@@ -239,7 +240,7 @@ def _jsonvalue_null(_, *, vm: ffi.CData) -> ffi.CData:
 
 
 def jsonvalue_destroy(value: ffi.CData, *, vm: ffi.CData):
-    lib.jsonnet_destroy(vm, value)
+    lib.jsonnet_json_destroy(vm, value)
 
 
 def jsonnet_version() -> str:
