@@ -123,13 +123,13 @@ class VMHandle:
 
     @staticmethod
     @ffi.def_extern()
-    def _native_callback(ctx, argv, success):
+    def _native_callback(ctx, argv, success_ptr):
         self, cb = ffi.from_handle(ctx)  # type: VMHandle, Callable
         try:
             sig = inspect.signature(cb)
             args = [self.from_jsonvalue(argv[i]) for i in range(len(sig.parameters))]
             result = self.jsonvalue(cb(*args))
-            success[0] = 1
+            success_ptr[0] = 1
             return result
         except Exception as e:
             return self.jsonvalue(f'{e.__class__.__name__}: {e}')
@@ -177,9 +177,9 @@ def from_jsonvalue(vm: ffi.CData, c_jsonvalue: ffi.CData) -> JsonValue:
     if c_str:
         return from_c_str(c_str)
 
-    c_number = ffi.new('double *')
-    if lib.jsonnet_json_extract_number(vm, c_jsonvalue, c_number):
-        return c_number[0]
+    c_number_ptr = ffi.new('double *')
+    if lib.jsonnet_json_extract_number(vm, c_jsonvalue, c_number_ptr):
+        return c_number_ptr[0]
 
     c_bool = lib.jsonnet_json_extract_bool(vm, c_jsonvalue)
     if c_bool != 2:
