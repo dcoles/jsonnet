@@ -108,7 +108,7 @@ class VMHandle:
         c_name = ffi.new('char []', name)
 
         sig = inspect.signature(cb)
-        params = [ffi.new('char []', p.encode()) for p in sig.parameters]
+        params = [*(ffi.new('char []', p.encode()) for p in sig.parameters), ffi.NULL]
         c_params = ffi.new('char *[]', params)
 
         lib.jsonnet_native_callback(self._vm, c_name, lib._native_callback, handle, c_params)
