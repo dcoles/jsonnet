@@ -10,23 +10,23 @@
 **/*.dylib
 *.dSYM
 
-jsonnet
-jsonnetfmt
-_jsonnet.so
-libjsonnet.so
-libjsonnet.so.*
-libjsonnet++.so
-libjsonnet++.so.*
-libjsonnet.js
-libjsonnet_test_file
-libjsonnet_test_snippet
+/jsonnet
+/jsonnetfmt
+/_jsonnet.so
+/libjsonnet.so
+/libjsonnet.so.*
+/libjsonnet++.so
+/libjsonnet++.so.*
+/libjsonnet.js
+/libjsonnet_test_file
+/libjsonnet_test_snippet
 **/core.*
 **/vgcore
 **/vgcore.*
-core/std.jsonnet.h
-Makefile.depend
-Makefile.depend.bak
-bazel-*
+/core/std.jsonnet.h
+/Makefile.depend
+/Makefile.depend.bak
+/bazel-*
 
 **/*.tfstate
 **/*.tfstate.backup
