@@ -1,8 +1,9 @@
 import json
+import os
 from typing import Callable, Iterable, Mapping, Optional, Tuple, Union
 
 from jsonnet import bindings
-from jsonnet.types import JsonValue
+from jsonnet.types import JsonValue, PathLike
 
 
 class JsonnetVM:
@@ -104,7 +105,7 @@ class JsonnetVM:
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
         self.destroy()
 
-    def evaluate_file(self, filename: str, deserialize: Union[bool, Callable] = False) \
+    def evaluate_file(self, filename: PathLike, deserialize: Union[bool, Callable] = False) \
             -> Union[str, JsonValue]:
         """
         Evaluate a file containing Jsonnet code, return a JSON string.
@@ -114,13 +115,15 @@ class JsonnetVM:
             Can also be used to supply a custom deserialization function.
         :return: The result of evaluation.
         """
+        filename = os.fspath(filename)
+
         if not self._handle:
             raise RuntimeError('JsonVM has been closed')
 
         result = self._handle.evaluate_file(filename)
         return self._deserialize(result, deserialize=deserialize)
 
-    def evaluate_snippet(self, snippet: str, filename: str = '<string>', deserialize=None) \
+    def evaluate_snippet(self, snippet: str, filename: PathLike = '<string>', deserialize=None) \
             -> Union[str, JsonValue]:
         """
         Evaluate a string containing Jsonnet code, return a JSON string.
@@ -131,6 +134,8 @@ class JsonnetVM:
             Can also be used to supply a custom deserialization function.
         :return: The result of evaluation.
         """
+        filename = os.fspath(filename)
+
         if not self._handle:
             raise RuntimeError('JsonVM has been closed')
 

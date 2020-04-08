@@ -1,9 +1,10 @@
 import inspect
+import os
 from functools import singledispatch
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 from jsonnet._jsonnet import ffi, lib
-from jsonnet.types import JsonValue, JsonnetError
+from jsonnet.types import JsonValue, JsonnetError, PathLike
 
 
 class VMHandle:
@@ -133,9 +134,10 @@ class VMHandle:
         except Exception as e:
             return self.jsonvalue(f'{e.__class__.__name__}: {e}')
 
-    def evaluate_file(self, filename: str):
+    def evaluate_file(self, filename: PathLike):
+        filename = os.fsencode(filename)
         error_ptr = ffi.new('int *')
-        result = lib.jsonnet_evaluate_file(self._vm, filename.encode(), error_ptr)
+        result = lib.jsonnet_evaluate_file(self._vm, filename, error_ptr)
         try:
             output = from_c_str(result)
         finally:
@@ -146,9 +148,10 @@ class VMHandle:
 
         return output
 
-    def evaluate_snippet(self, filename: str, snippet: str):
+    def evaluate_snippet(self, filename: PathLike, snippet: str):
+        filename = os.fsencode(filename)
         error_ptr = ffi.new('int *')
-        result = lib.jsonnet_evaluate_snippet(self._vm, filename.encode(), snippet.encode(), error_ptr)
+        result = lib.jsonnet_evaluate_snippet(self._vm, filename, snippet.encode(), error_ptr)
         try:
             output = from_c_str(result)
         finally:
