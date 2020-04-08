@@ -87,16 +87,23 @@ class VMHandle:
 
     @staticmethod
     @ffi.def_extern()
-    def _import_callback(ctx, base, rel, found_here, success):
-        self: VMHandle = ffi.from_handle(ctx)
+    def _import_callback(ctx, base, rel, found_here_ptr, success_ptr):
+        self = ffi.from_handle(ctx)  # type: VMHandle
         try:
             imprt = self._import_callback(from_c_str(base), from_c_str(rel))
-            if (not isinstance(imprt, Tuple) or len(imprt) != 2
-                    or not isinstance(imprt[0], str) or not isinstance(imprt[1], str)):
-                raise ValueError(f'Expected import callback to return (str, str) got {imprt!r}')
-            found_here[0] = imprt[0]
-            success[0] = 1
-            return self.alloc_c_str(imprt[1])
+            if not isinstance(imprt, Tuple) or len(imprt) != 2:
+                raise TypeError(f'Expected import callback to return Tuple of size 2, got {imprt!r}')
+
+            content, found_here = imprt
+            if not isinstance(content, (str, bytes)):
+                raise TypeError(f'Import content must be str or bytes, got {type(content).__name__}')
+
+            if not isinstance(found_here, (str, bytes, os.PathLike)):
+                raise TypeError(f'Import found_here must be str, bytes or PathLike, got {type(content).__name__}')
+
+            found_here_ptr[0] = self.alloc_c_str(os.fsencode(found_here))
+            success_ptr[0] = 1
+            return self.alloc_c_str(content)
         except Exception as e:
             return self.alloc_c_str(f'{e.__class__.__name__}: {e}')
 
@@ -152,7 +159,7 @@ class VMHandle:
 
         return output
 
-    def alloc_c_str(self, value: str):
+    def alloc_c_str(self, value: Union[str, bytes]):
         return alloc_c_str(value, vm=self._vm)
 
     def from_jsonvalue(self, c_jsonvalue: ffi.CData) -> JsonValue:
@@ -251,9 +258,9 @@ def from_c_str(c_str: ffi.CData) -> str:
     return ffi.string(c_str).decode()
 
 
-def alloc_c_str(value: str, *, vm: ffi.CData):
+def alloc_c_str(value: Union[str, bytes], *, vm: ffi.CData):
     """Allocate a null-terminated string."""
-    value = value.encode() + b'\0'
+    value = (value.encode() if isinstance(value, str) else value) + b'\0'
     buf = realloc(ffi.NULL, len(value), vm=vm)
     if not buf:
         raise RuntimeError(f'jsonnet_realloc of {len(value)} bytes failed')
