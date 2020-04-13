@@ -1,33 +1,30 @@
-import json
-import os
-from typing import Callable, Iterable, Mapping, Optional, Tuple, Union
+"""
+Virtual machine for interpreting Jsonnet.
+"""
+from __future__ import absolute_import
 
-from jsonnet import bindings
-from jsonnet.types import JsonValue, PathLike
+import json
+from collections import Callable
+
+from jsonnet import _bindings
 
 
 class JsonnetVM:
     """Jsonnet virtual machine."""
 
-    # Import callback: fn(base: str, rel: str) -> (content: str, found_here: str)
-    ImportCallback = Callable[[str, str], Tuple[str, str]]
-
-    # Native callback: fn(JsonValue, ...) -> JsonValue
-    NativeCallback = Callable[..., JsonValue]
-
     def __init__(self,
-                 jpath: Optional[Iterable[str]] = None,
-                 import_callback: Optional[ImportCallback] = None,
-                 native_callbacks: Optional[Mapping[str, NativeCallback]] = None,
-                 *, max_stack: Optional[int] = None,
-                 gc_min_objects: Optional[int] = None,
-                 gc_growth_trigger: Optional[float] = None,
-                 string_output: Optional[bool] = None,
-                 max_trace: Optional[int] = None,
-                 ext_vars: Mapping[str, str] = None,
-                 ext_codes: Mapping[str, str] = None,
-                 tla_vars: Mapping[str, str] = None,
-                 tla_codes: Mapping[str, str] = None):
+                 jpath=None,
+                 max_stack=None,
+                 gc_min_objects=None,
+                 gc_growth_trigger=None,
+                 string_output=None,
+                 max_trace=None,
+                 ext_vars=None,
+                 ext_codes=None,
+                 tla_vars=None,
+                 tla_codes=None,
+                 import_callback=None,
+                 native_callbacks=None):
         """
         Create a new Jsonnet virtual machine.
 
@@ -50,13 +47,13 @@ class JsonnetVM:
         tla_vars = tla_vars or {}
         tla_codes = tla_codes or {}
 
-        self._handle: bindings.VMHandle = bindings.VMHandle.create()
+        self._handle = _bindings.VMHandle.create()
 
         for path in jpath:
             self._handle.add_to_jpath(path)
 
         if import_callback:
-            self._handle.import_callback = import_callback
+            self._handle.set_import_callback(import_callback)
 
         if native_callbacks:
             for name, cb in native_callbacks.items():
@@ -91,9 +88,9 @@ class JsonnetVM:
 
     def destroy(self):
         """
-        Destroy JsonVM.
+        Destroy JsonnetVM.
 
-        Calling any JsonVM methods after this method will raise a `RuntimeError`.
+        Calling any JsonnetVM methods after this method will raise a `RuntimeError`.
         """
         if self._handle:
             self._handle.destroy()
@@ -105,26 +102,23 @@ class JsonnetVM:
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
         self.destroy()
 
-    def evaluate_file(self, filename: PathLike, deserialize: Union[bool, Callable] = False) \
-            -> Union[str, JsonValue]:
+    def evaluate_file(self, filename, deserialize=None):
         """
         Evaluate a file containing Jsonnet code, return a JSON string.
 
         :param filename: Path to a file containing Jsonnet code.
         :param deserialize: If True, parse resulting JSON to a Python object.
             Can also be used to supply a custom deserialization function.
+        :raise JsonnetError: If evaluation fails.
         :return: The result of evaluation.
         """
-        filename = os.fspath(filename)
-
         if not self._handle:
-            raise RuntimeError('JsonVM has been closed')
+            raise RuntimeError('JsonnetVM has been closed')
 
         result = self._handle.evaluate_file(filename)
         return self._deserialize(result, deserialize=deserialize)
 
-    def evaluate_snippet(self, snippet: str, filename: PathLike = '<string>', deserialize=None) \
-            -> Union[str, JsonValue]:
+    def evaluate_snippet(self, snippet, filename='<string>', deserialize=None):
         """
         Evaluate a string containing Jsonnet code, return a JSON string.
 
@@ -132,18 +126,17 @@ class JsonnetVM:
         :param filename: Path to a file (used in error messages).
         :param deserialize: If True, parse resulting JSON to a Python object.
             Can also be used to supply a custom deserialization function.
+        :raise JsonnetError: If evaluation fails.
         :return: The result of evaluation.
         """
-        filename = os.fspath(filename)
-
         if not self._handle:
-            raise RuntimeError('JsonVM has been closed')
+            raise RuntimeError('JsonnetVM has been closed')
 
         result = self._handle.evaluate_snippet(filename, snippet)
         return self._deserialize(result, deserialize=deserialize)
 
     @staticmethod
-    def _deserialize(string: str, deserialize=False) -> Union[str, JsonValue]:
+    def _deserialize(string, deserialize=None):
         """Optionally deserialize value."""
         if isinstance(deserialize, Callable):
             return deserialize(string)
@@ -155,6 +148,37 @@ class JsonnetVM:
         return string
 
 
-def version() -> str:
+def evaluate_file(filename, deserialize=False, **kwargs):
+    """
+    Evaluate a file containing Jsonnet code, return a JSON string.
+
+    :param filename: Path to a file containing Jsonnet code.
+    :param deserialize: If True, parse resulting JSON to a Python object.
+        Can also be used to supply a custom deserialization function.
+    :param kwargs: Passed through to constructor of JsonnetVM.
+    :raise JsonnetError: If evaluation fails.
+    :return: The result of evaluation.
+    """
+    with JsonnetVM(**kwargs) as vm:
+        return vm.evaluate_file(filename, deserialize=deserialize)
+
+
+def evaluate_snippet(snippet, filename='<string>', deserialize=None, **kwargs):
+    """
+    Evaluate a string containing Jsonnet code, return a JSON string.
+
+    :param snippet: Jsonnet code to execute.
+    :param filename: Path to a file (used in error messages).
+    :param deserialize: If True, parse resulting JSON to a Python object.
+        Can also be used to supply a custom deserialization function.
+    :param kwargs: Passed through to constructor of JsonnetVM.
+    :raise JsonnetError: If evaluation fails.
+    :return: The result of evaluation.
+    """
+    with JsonnetVM(**kwargs) as vm:
+        return vm.evaluate_snippet(snippet, filename, deserialize=deserialize)
+
+
+def version():
     """Return the version string of the Jsonnet interpreter."""
-    return bindings.jsonnet_version()
+    return _bindings.jsonnet_version()
