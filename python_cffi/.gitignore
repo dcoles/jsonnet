@@ -1,0 +1,15 @@
+# Python artifacts
+__pycache__
+
+# Python build cruft
+/.eggs
+/.tox
+/build
+/dist
+/*.egg-info
+/venv
+
+# CFFI artifacts
+/jsonnet/*.so
+/jsonnet/*.c
+/jsonnet/_jsonnet
