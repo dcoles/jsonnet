@@ -1,14 +1,14 @@
 from cffi import FFI
 ffibuilder = FFI()
 
-ffibuilder.set_source('jsonnet._jsonnet', r'''
+ffibuilder.set_source('jsonnet._lib', r'''
     #include <libjsonnet.h>
 ''', libraries=['jsonnet'])
 
 ffibuilder.cdef(r'''
     extern "Python" char *
     _import_callback(void *ctx, const char *base, const char *rel, char **found_here, int *success);
-                                           
+
     extern "Python" struct JsonnetJsonValue *
     _native_callback(void *ctx, const struct JsonnetJsonValue *const *argv, int *success);
 
